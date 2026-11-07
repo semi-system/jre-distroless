@@ -12,7 +12,7 @@ RUN test -n "$CACHE_BUST" && jlink \
     --compress=2 \
     --output /jre
 
-FROM ghcr.io/morningstar-sudo/baseless-glibc:latest
+FROM ghcr.io/semi-system/baseless-glibc:latest
 
 ENV JAVA_HOME=/opt/java
 ENV PATH="$JAVA_HOME/bin:$PATH"
