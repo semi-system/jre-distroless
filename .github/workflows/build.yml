@@ -29,6 +29,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Allow runner user to access Docker
+        run: sudo setfacl -m "u:$(id -u):rw" /var/run/docker.sock
+
       - name: Set image name
         id: image
         run: echo "name=${RAW_NAME,,}" >> "$GITHUB_OUTPUT"
@@ -112,6 +115,9 @@ jobs:
       matrix:
         java: [17, 21, 25]
     steps:
+      - name: Allow runner user to access Docker
+        run: sudo setfacl -m "u:$(id -u):rw" /var/run/docker.sock
+
       - uses: actions/download-artifact@v4
         with:
           pattern: digests-${{ matrix.java }}-*
