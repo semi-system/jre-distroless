@@ -9,6 +9,10 @@ on:
     - cron: "23 17 * * *"
   workflow_dispatch:
 
+env:
+  TRIVY_VERSION: "0.76.1"
+  GRYPE_VERSION: "0.121.0"
+
 jobs:
   # Build and scan AMD64 images on Ubuntu 24.04.
   # Publish immutable digests before applying latest and <sha>-<date> tags.
@@ -57,13 +61,38 @@ jobs:
           cache-from: type=gha,scope=${{ env.CACHE_SCOPE }}
           cache-to: type=gha,mode=max,scope=${{ env.CACHE_SCOPE }}
 
-      - name: Vulnerability gate (Trivy)
+      # Image dựa trên Baseless (ID=baseless) và JRE không có database gói, nên
+      # `trivy image` không đọc được CVE; chỉ dùng nó cho secret. CVE của JRE
+      # được quét bằng Grype từ phiên bản Java thực tế của image.
+      - name: Secret gate (Trivy)
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: local/scan-${{ matrix.java }}
-          severity: UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL
-          ignore-unfixed: false
+          scanners: secret
+          version: v${{ env.TRIVY_VERSION }}
           exit-code: "1"
+
+      - name: Install pinned Grype
+        run: |
+          mkdir -p .tools/bin .tools/downloads
+          curl -fsSL "https://github.com/anchore/grype/releases/download/v${GRYPE_VERSION}/grype_${GRYPE_VERSION}_linux_amd64.tar.gz" -o .tools/downloads/grype.tar.gz
+          echo "64e07133d3486115de647a66581461dccf5c732748a0a3119077395565f15519  .tools/downloads/grype.tar.gz" | sha256sum -c -
+          tar -xzf .tools/downloads/grype.tar.gz -C .tools/bin grype
+
+      # Khớp theo CPE nên có thể có false positive; nếu cần, thêm
+      # security/jre.openvex.json và nó sẽ tự được dùng làm VEX.
+      - name: CVE gate for the JRE (Grype)
+        run: |
+          set -euo pipefail
+          version="$(docker run --rm local/scan-${{ matrix.java }} java -version 2>&1 |
+            sed -n 's/.*version "\([0-9][0-9.]*\).*/\1/p' | head -1)"
+          test -n "${version}"
+          echo "Detected Java ${version}"
+          python3 scripts/components_sbom.py -o dist/jre.cdx.json \
+            --component "temurin-jre|${version}|cpe:2.3:a:oracle:jre:{v}:*:*:*:*:*:*:*,cpe:2.3:a:oracle:jdk:{v}:*:*:*:*:*:*:*|pkg:generic/eclipse-temurin/jre@${version}"
+          vex=()
+          if [ -f security/jre.openvex.json ]; then vex=(--vex security/jre.openvex.json); fi
+          .tools/bin/grype sbom:dist/jre.cdx.json "${vex[@]}" --fail-on medium
 
       - name: Push by digest
         id: push

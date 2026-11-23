@@ -124,3 +124,9 @@ Java 17 21 25 distroless Docker image · zero CVE Java base image · minimal JRE
 ## License
 
 Apache-2.0. See upstream: [Eclipse Temurin](https://adoptium.net/) and [Baseless](https://github.com/morningstar-sudo/baseless).
+
+## CVE scanning
+
+These images are built on Baseless (`ID=baseless`), a distro Trivy does not recognize, so `trivy image` cannot match OS-package CVEs. CI uses it for secrets only and scans the real contents separately:
+
+- JRE: the Java version reported by the image is turned into a CycloneDX SBOM with Oracle JDK/JRE CPEs (`scripts/components_sbom.py`) and scanned with pinned Grype (`--fail-on medium`). CPE matching can produce false positives; add `security/jre.openvex.json` to suppress them.
