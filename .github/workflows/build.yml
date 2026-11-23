@@ -92,7 +92,7 @@ jobs:
             --component "temurin-jre|${version}|cpe:2.3:a:oracle:jre:{v}:*:*:*:*:*:*:*,cpe:2.3:a:oracle:jdk:{v}:*:*:*:*:*:*:*|pkg:generic/eclipse-temurin/jre@${version}"
           vex=()
           if [ -f security/jre.openvex.json ]; then vex=(--vex security/jre.openvex.json); fi
-          .tools/bin/grype sbom:dist/jre.cdx.json "${vex[@]}" --fail-on medium
+          .tools/bin/grype sbom:dist/jre.cdx.json "${vex[@]}" --fail-on negligible
 
       - name: Push by digest
         id: push
